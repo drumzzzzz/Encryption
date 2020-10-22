@@ -20,14 +20,18 @@ class Algorithm
 		char c;
 
 		// Iterate text characters and apply a rotating XOR per password value 
-		for (int text_idx=0; text_idx < text_length - 1;text_idx++)
+		for (int text_idx=0; text_idx < text_length;text_idx++)
 		{
 			crypt = (int)pass[pass_idx];
-			
-			s->push_back(text[text_idx] ^ crypt);
+			c = text[text_idx] ^ crypt;
+
+			if (c == '\0')
+				c = 0;
+
+			s->push_back(c);
 			
 			pass_idx++;
-			if (pass_idx >= pass_length - 1)
+			if (pass_idx > pass_length)
 				pass_idx = 0;
 		}
 
@@ -75,7 +79,7 @@ int main(int argc, char* argv[])
 
 	cout << "Processing Text ..." << endl;
 
-	string* file_text_out = Algorithm::Calculate(file_text_in.data(), "p1ssword2");
+	string* file_text_out = Algorithm::Calculate(file_text_in.data(), argv[3]);
 
 	cout << "Writing to file " << argv[2] << endl;
 	
@@ -86,6 +90,12 @@ int main(int argc, char* argv[])
 	}
 	
 	cout << "Operation Completed." << endl;
+
+	string* test_text_out = Algorithm::Calculate(file_text_out->data(), argv[3]);
+	cout << "Input:" << file_text_in << endl;
+	cout << "Encrypted:" << file_text_out->data() << endl;
+	cout << "Decrypted:" << test_text_out->data() << endl;
+	
 	return 0;
 }
 
