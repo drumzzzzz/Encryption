@@ -3,40 +3,46 @@
 
 using namespace std;
 
+// Strategy abstract polymorphic base
+class Encryption
+{
+public:
+	virtual vector<string> Calculate(vector<int>* values) = 0;
+};
+
+
 // Performs a XOR based encryption/decryption on supplied text from a given password 
-class Algorithm
+class RollShift : Encryption
 {
 	private:
 	
 	public:
-	static vector<string>* Calculate(vector<string>* text, const char* pass)
+	static string Calculate(const char* text, const char* pass)
 	{
-		vector<string>* crypt_text = new vector<string>();
-		const unsigned int pass_length = strlen(pass) + 1;
-		int text_length;
-		// const unsigned int text_length = strlen(text) + 1;
+		string crypt_text = "";
+		const unsigned int pass_length = strlen(pass) - 1;
+		const unsigned int text_length = strlen(text) - 1;
+
 		unsigned int crypt;
 		unsigned int pass_idx = 0;
 		char c;
-
-		for (string ts : *text)
+		int idx = 0;
+	
+		// Iterate text characters and apply a rotating XOR per password value 
+		for (unsigned int text_idx = 0; text_idx < text_length; text_idx++)
 		{
-			text_length = ts.size();
-			string* s = new string();
-			pass_idx = 0;
-			// Iterate text characters and apply a rotating XOR per password value 
-			for (unsigned int text_idx = 0; text_idx < text_length; text_idx++)
-			{
-				crypt = (int)pass[pass_idx];
-				c = (int)pass[pass_idx];
-				s->push_back(ts[text_idx] ^ c);
-				pass_idx++;
-				if (pass_idx > pass_length)
-					pass_idx = 0;
-			}
-			//s->erase(remove(s->begin(), s->end(), '\n'), s->end());
-			crypt_text->push_back(s->data());
+			crypt = (int)pass[pass_idx];
+			crypt_text.push_back((char)text[text_idx] ^ crypt);
+			c = (char)(text[text_idx] ^ crypt);
+			cout << "(" << text[text_idx] << ":" << crypt << ", " << c << ") " << endl;
+			pass_idx++;
+			if (pass_idx > pass_length)
+				pass_idx = 0;
 		}
+		//int pos;
+		//if ((pos = crypt_text.find('')) != string::npos)
+		//	crypt_text.erase(pos);
+	
 		return crypt_text;
 	}
 };
@@ -71,9 +77,9 @@ int main(int argc, char* argv[])
 
 	cout << "Reading " << argv[1] << endl;
 
-	vector<string>* file_text_in = FileIO::fileRead(argv[1]);
+	string* file_text_in = FileIO::fileRead(argv[1]);
 	
-	if (file_text_in == nullptr)
+	if (file_text_in->empty())
 	{
 		cout << "File was empty!" << endl;
 		return -1;
@@ -81,11 +87,14 @@ int main(int argc, char* argv[])
 
 	cout << "Processing Text ..." << endl;
 
-	vector<string>* file_text_out = Algorithm::Calculate(file_text_in, argv[3]);
+	string encrypted = Algorithm::Calculate(file_text_in->data(), argv[3]);
+
+	cout << "Encrypted:" << endl;
+	cout << encrypted;
 
 	cout << "Writing to file " << argv[2] << endl;
 	
-	if (!FileIO::fileWrite(argv[2], file_text_out, false))
+	if (!FileIO::fileWrite_Unicode(argv[2], &encrypted))
 	{
 		cout << "Operation Failed!" << endl;
 		return -1;
@@ -93,24 +102,9 @@ int main(int argc, char* argv[])
 	
 	cout << "Operation Completed." << endl;
 
-	vector<string>* test_text_out = Algorithm::Calculate(file_text_out, argv[3]);
-	cout << "Input:" << endl;
-	for (string ts : *file_text_in)
-	{
-		cout << ts << endl;
-	}
-
-	cout << "Encrypted:" << endl;
-	for (string ts : *file_text_out)
-	{
-		cout << ts << endl;
-	}
-
+	string decrypted = Algorithm::Calculate(encrypted.data(), argv[3]);
 	cout << "Decrypted:" << endl;
-	for (string ts : *test_text_out)
-	{
-		cout << ts << endl;
-	}
+	cout << decrypted;
 	
 	return 0;
 }
