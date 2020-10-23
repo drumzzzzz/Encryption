@@ -9,34 +9,35 @@ class Algorithm
 	private:
 	
 	public:
-	static string* Calculate(const char* text, const char* pass)
+	static vector<string>* Calculate(vector<string>* text, const char* pass)
 	{
+		vector<string>* crypt_text = new vector<string>();
 		const unsigned int pass_length = strlen(pass) + 1;
-		const unsigned int text_length = strlen(text) + 1;
-		int crypt;
+		int text_length;
+		// const unsigned int text_length = strlen(text) + 1;
+		unsigned int crypt;
 		unsigned int pass_idx = 0;
-		
-		string* s = new string();
 		char c;
 
-		// Iterate text characters and apply a rotating XOR per password value 
-		for (unsigned int text_idx=0; text_idx < text_length;text_idx++)
+		for (string ts : *text)
 		{
-			crypt = (int)pass[pass_idx];
-			c = text[text_idx] ^ crypt;
-
-			if (c == '\0') // Change null zero's
-				c = 0;
-
-			s->push_back(c);
-
-			pass_idx++;
-			if (pass_idx > pass_length)
-				pass_idx = 0;
+			text_length = ts.size();
+			string* s = new string();
+			pass_idx = 0;
+			// Iterate text characters and apply a rotating XOR per password value 
+			for (unsigned int text_idx = 0; text_idx < text_length; text_idx++)
+			{
+				crypt = (int)pass[pass_idx];
+				c = (int)pass[pass_idx];
+				s->push_back(ts[text_idx] ^ c);
+				pass_idx++;
+				if (pass_idx > pass_length)
+					pass_idx = 0;
+			}
+			//s->erase(remove(s->begin(), s->end(), '\n'), s->end());
+			crypt_text->push_back(s->data());
 		}
-		s->push_back('\0');
-
-		return s;
+		return crypt_text;
 	}
 };
 
@@ -70,9 +71,9 @@ int main(int argc, char* argv[])
 
 	cout << "Reading " << argv[1] << endl;
 
-	const string file_text_in = FileIO::fileRead(argv[1]);
+	vector<string>* file_text_in = FileIO::fileRead(argv[1]);
 	
-	if (file_text_in.empty())
+	if (file_text_in == nullptr)
 	{
 		cout << "File was empty!" << endl;
 		return -1;
@@ -80,7 +81,7 @@ int main(int argc, char* argv[])
 
 	cout << "Processing Text ..." << endl;
 
-	string* file_text_out = Algorithm::Calculate(file_text_in.data(), argv[3]);
+	vector<string>* file_text_out = Algorithm::Calculate(file_text_in, argv[3]);
 
 	cout << "Writing to file " << argv[2] << endl;
 	
@@ -92,10 +93,24 @@ int main(int argc, char* argv[])
 	
 	cout << "Operation Completed." << endl;
 
-	string* test_text_out = Algorithm::Calculate(file_text_out->data(), argv[3]);
-	cout << "Input:" << file_text_in << endl;
-	cout << "Encrypted:" << file_text_out->data() << endl;
-	cout << "Decrypted:" << test_text_out->data() << endl;
+	vector<string>* test_text_out = Algorithm::Calculate(file_text_out, argv[3]);
+	cout << "Input:" << endl;
+	for (string ts : *file_text_in)
+	{
+		cout << ts << endl;
+	}
+
+	cout << "Encrypted:" << endl;
+	for (string ts : *file_text_out)
+	{
+		cout << ts << endl;
+	}
+
+	cout << "Decrypted:" << endl;
+	for (string ts : *test_text_out)
+	{
+		cout << ts << endl;
+	}
 	
 	return 0;
 }
