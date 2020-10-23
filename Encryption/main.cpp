@@ -11,29 +11,30 @@ class Algorithm
 	public:
 	static string* Calculate(const char* text, const char* pass)
 	{
-		const int pass_length = strlen(pass);
-		const int text_length = strlen(text);
+		const unsigned int pass_length = strlen(pass) + 1;
+		const unsigned int text_length = strlen(text) + 1;
 		int crypt;
-		int pass_idx = 0;
+		unsigned int pass_idx = 0;
 		
 		string* s = new string();
 		char c;
 
 		// Iterate text characters and apply a rotating XOR per password value 
-		for (int text_idx=0; text_idx < text_length;text_idx++)
+		for (unsigned int text_idx=0; text_idx < text_length;text_idx++)
 		{
 			crypt = (int)pass[pass_idx];
 			c = text[text_idx] ^ crypt;
 
-			if (c == '\0')
+			if (c == '\0') // Change null zero's
 				c = 0;
 
 			s->push_back(c);
-			
+
 			pass_idx++;
 			if (pass_idx > pass_length)
 				pass_idx = 0;
 		}
+		s->push_back('\0');
 
 		return s;
 	}
