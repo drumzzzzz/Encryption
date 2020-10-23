@@ -7,58 +7,133 @@ using namespace std;
 class Encryption
 {
 public:
-	virtual vector<string> Calculate(vector<int>* values) = 0;
+	virtual vector<string> Calculate(vector<string>* text, const char* pass, bool isEncrypt) = 0;
+
+	static void DisplayInputValues(vector<string>* values)
+	{
+		cout << "Input:" << endl;
+		for (string s : *values)
+			cout << s << endl;
+	}
+
+	static void DisplayOutputValues(vector<string>* values)
+	{
+		cout << "Output:" << endl;
+		for (string s : *values)
+			cout << s << endl;
+	}
 };
 
 
-// Performs a XOR based encryption/decryption on supplied text from a given password 
-class RollShift : Encryption
+// Performs an ascii roll based encryption/decryption on supplied text from a given password 
+class RollShift : public Encryption
 {
 	private:
+	const int MIN = 32;
+	const int MAX = 126;
+	
+	char AsciiRoll(int ascii_code, char c, int dir)
+	{
+		int value = (int)c;
+		
+		if (ascii_code < MIN || ascii_code > MAX)
+			return c;
+
+		for (int i=0;i<ascii_code;i++)
+		{
+			value+=dir;
+			//if (value > MAX)
+			//	value = MIN;
+		}
+		return (char)value;
+	}
 	
 	public:
-	static string Calculate(const char* text, const char* pass)
+	vector<string> Calculate(vector<string>* text, const char* pass, bool isEncrypt)
 	{
-		string crypt_text = "";
+		vector<string> crypt_text;
 		const unsigned int pass_length = strlen(pass) - 1;
-		const unsigned int text_length = strlen(text) - 1;
+		unsigned int text_length;
 
-		unsigned int crypt;
 		unsigned int pass_idx = 0;
-		char c;
+		int ascii_code;
 		int idx = 0;
-	
-		// Iterate text characters and apply a rotating XOR per password value 
-		for (unsigned int text_idx = 0; text_idx < text_length; text_idx++)
+		char c;
+
+		DisplayInputValues(text);
+
+		for (string ts : *text)
 		{
-			crypt = (int)pass[pass_idx];
-			crypt_text.push_back((char)text[text_idx] ^ crypt);
-			c = (char)(text[text_idx] ^ crypt);
-			cout << "(" << text[text_idx] << ":" << crypt << ", " << c << ") " << endl;
-			pass_idx++;
-			if (pass_idx > pass_length)
-				pass_idx = 0;
+			text_length = ts.size();
+			crypt_text.emplace_back("");
+			//pass_idx = 0;
+			// Iterate text characters and apply a +- rotate per password value 
+			for (unsigned int text_idx = 0; text_idx < text_length; text_idx++)
+			{
+				ascii_code = (int)pass[pass_idx];
+				c = AsciiRoll(ascii_code, ts[text_idx], (isEncrypt) ? 1 : -1);
+			    crypt_text[idx].push_back(c);
+				
+				pass_idx++;
+				if (pass_idx > pass_length)
+					pass_idx = 0;
+			}
+			idx++;
 		}
-		//int pos;
-		//if ((pos = crypt_text.find('')) != string::npos)
-		//	crypt_text.erase(pos);
-	
+
+		DisplayOutputValues(&crypt_text);
 		return crypt_text;
 	}
 };
 
+// Strategy pattern context methods
+class Context : public FileIO
+{
+private:
+	Encryption* encryption;
+
+public:
+	Context()
+	{}
+
+	Context(Encryption* new_encryption)
+	{
+		encryption = new_encryption;
+	}
+
+	void changeEncryption(Encryption* new_encryption)
+	{
+		encryption = new_encryption;
+	}
+
+	vector<string> executeStrategy(vector<string>* values, const char* pass, bool isEncrypt)
+	{
+		return encryption->Calculate(values,pass, isEncrypt);
+	}
+
+	vector<string>* ReadFile(string filename)
+	{
+		cout << "Reading file ..." << endl;
+		return fileRead(filename);
+	}
+
+	bool WriteFile(string filename, vector<string>* data)
+	{
+		cout << "Writing file ..." << endl;
+		return fileWrite(filename, data, false);
+	}
+};
 
 int main(int argc, char* argv[])
 {
 	const int PASS_LENGTH_MIN = 8;
 	const int PASS_LENGTH_MAX = 20;
 	
-	if (argc < 4)
+	if (argc < 6)
 	{
 		cerr << "Usage: " << endl <<
-			argv[0] << "'text file in' 'text file out' password" << endl
-			<< "Example: myfile1.txt myfile2.txt p@ssword1" << endl
-			<< "Example: myfile2.txt myfile3.txt p@ssword1" << endl;
+			argv[0] << "<-e/-d> <-encryption> 'text file in' 'text file out' password" << endl
+			<< "Example: -e -rollshift myfile1.txt myfile2.txt p@ssword1" << endl;
 		return -1;
 	}
 	
@@ -69,43 +144,47 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	if (strlen(argv[1]) == 0 || strlen(argv[2]) == 0)
+	if (strlen(argv[3]) == 0 || strlen(argv[4]) == 0)
 	{
 		cout << "Invalid file names." << endl;
 		return -1;
 	}
 
-	cout << "Reading " << argv[1] << endl;
+	Context* context = new Context();
+	RollShift rollshift;
 
-	string* file_text_in = FileIO::fileRead(argv[1]);
-	
-	if (file_text_in->empty())
+	vector<string>* file_text_in = context->ReadFile(argv[3]);
+
+	if (file_text_in == nullptr || file_text_in->empty())
 	{
 		cout << "File was empty!" << endl;
 		return -1;
 	}
 
-	cout << "Processing Text ..." << endl;
+	bool isEncrypt;
 
-	string encrypted = Algorithm::Calculate(file_text_in->data(), argv[3]);
-
-	cout << "Encrypted:" << endl;
-	cout << encrypted;
-
-	cout << "Writing to file " << argv[2] << endl;
-	
-	if (!FileIO::fileWrite_Unicode(argv[2], &encrypted))
+	if (strcmp(argv[1], "-e") == 0)
+		isEncrypt = true;
+	else if (strcmp(argv[1], "-d") == 0)
+		isEncrypt = false;
+	else
 	{
-		cout << "Operation Failed!" << endl;
+		cout << "Missing -e -d parameter" << endl;
 		return -1;
 	}
-	
-	cout << "Operation Completed." << endl;
 
-	string decrypted = Algorithm::Calculate(encrypted.data(), argv[3]);
-	cout << "Decrypted:" << endl;
-	cout << decrypted;
-	
+	if (strcmp(argv[2],"-rollshift") == 0)
+	{
+		context->changeEncryption(&rollshift);
+		vector<string> result = context->executeStrategy(file_text_in, argv[5], isEncrypt);
+		context->WriteFile(argv[4], &result);
+	}
+	else
+	{
+		cout << "Missing encryption type parameter" << endl;
+		return -1;
+	}
+
 	return 0;
 }
 
