@@ -1,12 +1,14 @@
 #include <iostream>
+#include <string.h>
 #include "FileIO.h"
 
 using namespace std;
 
-// Strategy abstract polymorphic base
+// Enryption strategy abstract polymorphic base
 class Encryption
 {
 public:
+	virtual ~Encryption() = default;
 	virtual vector<string> Calculate(vector<string>* text, const char* pass, bool isEncrypt) = 0;
 
 	static void DisplayInputValues(vector<string>* values)
@@ -25,31 +27,29 @@ public:
 };
 
 
-// Performs an ascii roll based encryption/decryption on supplied text from a given password 
+// Performs an ascii roll based encryption/decryption on supplied text from a given password ascii char
 class RollShift : public Encryption
 {
 	private:
-	const int MIN = 32;
-	const int MAX = 126;
-	
+	const float MIN = 1;
+	const float MAX = 40;
+
+	// Convert given ascii code into a nRange(min->max) and add or subtract from char
 	char AsciiRoll(int ascii_code, char c, int dir)
 	{
 		int value = (int)c;
-		
-		if (ascii_code < MIN || ascii_code > MAX)
-			return c;
+		const int range = static_cast<int>((MAX - MIN) * ((float)ascii_code / 255 ));
 
-		for (int i=0;i<ascii_code;i++)
+		for (int i=0;i<range;i++)
 		{
-			value+=dir;
-			//if (value > MAX)
-			//	value = MIN;
+			value += dir;
 		}
 		return (char)value;
 	}
 	
 	public:
-	vector<string> Calculate(vector<string>* text, const char* pass, bool isEncrypt)
+	// Encrypts or decrypts supplied text array values via a character increment/decrement per rotating password value 
+	vector<string> Calculate(vector<string>* text, const char* pass, bool isEncrypt) override
 	{
 		vector<string> crypt_text;
 		const unsigned int pass_length = strlen(pass) - 1;
@@ -62,12 +62,13 @@ class RollShift : public Encryption
 
 		DisplayInputValues(text);
 
+		// Iterate array strings
 		for (string ts : *text)
 		{
 			text_length = ts.size();
 			crypt_text.emplace_back("");
-			//pass_idx = 0;
-			// Iterate text characters and apply a +- rotate per password value 
+			
+			// Iterate the text characters and apply a +- rotate per password value 
 			for (unsigned int text_idx = 0; text_idx < text_length; text_idx++)
 			{
 				ascii_code = (int)pass[pass_idx];
@@ -80,7 +81,6 @@ class RollShift : public Encryption
 			}
 			idx++;
 		}
-
 		DisplayOutputValues(&crypt_text);
 		return crypt_text;
 	}
@@ -90,7 +90,7 @@ class RollShift : public Encryption
 class Context : public FileIO
 {
 private:
-	Encryption* encryption;
+	Encryption* encryption{};
 
 public:
 	Context()
@@ -111,80 +111,93 @@ public:
 		return encryption->Calculate(values,pass, isEncrypt);
 	}
 
-	vector<string>* ReadFile(string filename)
+	static vector<string>* ReadFile(string filename)
 	{
 		cout << "Reading file ..." << endl;
 		return fileRead(filename);
 	}
 
-	bool WriteFile(string filename, vector<string>* data)
+	static bool WriteFile(string filename, vector<string>* data)
 	{
 		cout << "Writing file ..." << endl;
 		return fileWrite(filename, data, false);
 	}
 };
 
-int main(int argc, char* argv[])
+const int PASS_LENGTH_MIN = 8;
+const int PASS_LENGTH_MAX = 20;
+bool isEncrypt;
+
+// Validate the passed arguments
+bool CheckArguments(int argc, char* argv[])
 {
-	const int PASS_LENGTH_MIN = 8;
-	const int PASS_LENGTH_MAX = 20;
-	
 	if (argc < 6)
 	{
 		cerr << "Usage: " << endl <<
 			argv[0] << "<-e/-d> <-encryption> 'text file in' 'text file out' password" << endl
 			<< "Example: -e -rollshift myfile1.txt myfile2.txt p@ssword1" << endl;
-		return -1;
+		return false;
 	}
-	
+
 	if (strlen(argv[3]) < PASS_LENGTH_MIN || strlen(argv[3]) > PASS_LENGTH_MAX)
 	{
-		cout << "Invalid password length (" << strlen(argv[3]) << "). Must be between "
-		<< PASS_LENGTH_MIN << " and " << PASS_LENGTH_MAX << " characters." << endl;
-		return -1;
+		cerr << "Invalid alphanumeric password length (" << strlen(argv[3]) << "). Must be between "
+			<< PASS_LENGTH_MIN << " and " << PASS_LENGTH_MAX << " characters." << endl;
+		return false;
 	}
 
 	if (strlen(argv[3]) == 0 || strlen(argv[4]) == 0)
 	{
-		cout << "Invalid file names." << endl;
-		return -1;
+		cerr << "Invalid file names." << endl;
+		return false;
 	}
 
+	if (strcmp(argv[1], "-e") == 0)
+	{
+		isEncrypt = true;
+		return true;
+	}
+	if (strcmp(argv[1], "-d") == 0)
+	{
+		isEncrypt = false;
+		return true;
+	}
+
+	cerr << "Missing -e -d parameter" << endl;
+	return false;
+}
+
+// Applies a selected encryption strategy
+int main(int argc, char* argv[])
+{
+	if (!CheckArguments(argc, argv))
+		return -1;
+	
 	Context* context = new Context();
 	RollShift rollshift;
 
-	vector<string>* file_text_in = context->ReadFile(argv[3]);
+	vector<string>* file_text_in = Context::ReadFile(argv[3]);
 
 	if (file_text_in == nullptr || file_text_in->empty())
 	{
-		cout << "File was empty!" << endl;
+		cerr << "File was empty!" << endl;
 		return -1;
 	}
 
-	bool isEncrypt;
-
-	if (strcmp(argv[1], "-e") == 0)
-		isEncrypt = true;
-	else if (strcmp(argv[1], "-d") == 0)
-		isEncrypt = false;
-	else
-	{
-		cout << "Missing -e -d parameter" << endl;
-		return -1;
-	}
-
+	// Roll shift encrypt/decrypt
 	if (strcmp(argv[2],"-rollshift") == 0)
 	{
 		context->changeEncryption(&rollshift);
 		vector<string> result = context->executeStrategy(file_text_in, argv[5], isEncrypt);
-		context->WriteFile(argv[4], &result);
+		Context::WriteFile(argv[4], &result);
 	}
 	else
 	{
-		cout << "Missing encryption type parameter" << endl;
+		cerr << "Missing encryption type parameter" << endl;
 		return -1;
 	}
 
+	delete(context);
 	return 0;
 }
 
