@@ -1,1 +1,1 @@
-run="clang++-7 -pthread -std=c++17 ./Encryption/main.cpp -o ./Encryption/Encryption.exe && ./Encryption/Encryption.exe"
+run="clang++-7 -pthread -std=c++17 ./Encryption/main.cpp -o ./Encryption/Encryption.exe && ./Encryption/Encryption.exe -e -rollshift infile1.txt infile2.txt p@ssword1 && ./Encryption/Encryption.exe -d -rollshift infile2.txt infile3.txt p@ssword1"
